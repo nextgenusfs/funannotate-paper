@@ -12,18 +12,18 @@ wget http://fungidb.org/common/downloads/Current_Release/NcrassaOR74A/gff/data/F
 #the data contains both a rRNA contig and a mitochondrial contig, neither can be annotated
 #with funannotate, so will remove them and then clean up rest of fasta header
 echo -e 'KC683708\nKI440765\nKI440766\nKI440767\nKI440768\nKI440769\nKI440770\nKI440771\nKI440772\nKI440773\nKI440774\nKI440775\nKI440776\nKI440777\n' > remove.list
-python $HOMEDIR/fasta_remove.py FungiDB-38_NcrassaOR74A_Genome.fasta remove.list | sed 's/ | .*$//g' > Ncrassa.genome.fa
+sed 's/ | .*$//g' FungiDB-38_NcrassaOR74A_Genome.fasta > FungiDB-38_NcrassaOR74A_Genome_edit.fasta
+python $HOMEDIR/fasta_remove.py FungiDB-38_NcrassaOR74A_Genome_edit.fasta remove.list > Ncrassa.genome.fa
 
 #clean up gff file to remove annotations from mito and rRNA
 grep -E -v 'KC683708|KI440765|KI440766|KI440767|KI440768|KI440769|KI440770|KI440771|KI440772|KI440773|KI440774|KI440775|KI440776|KI440777' FungiDB-38_NcrassaOR74A.gff > Ncrassa.clean.gff3
 
-'''
-now annotate the genome 4 ways 
-	1) funannotate busco mediated training
-	2) funannotate RNA-seq data
-	3)maker base
-	4) maker with RNA-seq gene models
-'''
+echo -e "Now annotate the genome 4 ways 
+	\t1) funannotate busco mediated training
+	\t2) funannotate RNA-seq data
+	\t3) maker base
+	\t4) maker with RNA-seq gene models
+	-------------------------------------------"
 
 #first run repeatmodeler/repeat masker
 funannotate mask -i Ncrassa.genome.fa --cpus $CPUS -o Ncrassa.masked.fa
