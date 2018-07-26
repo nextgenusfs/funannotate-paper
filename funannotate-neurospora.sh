@@ -1,12 +1,19 @@
 #!/bin/bash
-#SBATCH --ntasks 12 --mem 25G --nodes 1 --out neurospora_predict.%A.log -J funNeuroPred
+#SBATCH --ntasks 32 --mem 32G --time 48:00:00 --nodes 1 --out neurospora_predict.%A.log -J funNeuroPred
+
+# rewrite as a makefile/snakemake?
 
 module load funannotate/git-live
 module load python/2.7.12
 
 #shell script to run funannotate on Neurospora crassa
-CPUS=12
+CPUS=32
 HOMEDIR=`pwd`
+SED=sed
+m=$(which gsed 2> /dev/null)
+if [ $m ]; then
+    SEd=$m
+fi
 
 mkdir run_Neurospora38
 pushd run_Neurospora38
@@ -22,13 +29,16 @@ fi
 #clean up the genome and annotation from FungiDB
 #the data contains both a rRNA contig and a mitochondrial contig, neither can be annotated
 #with funannotate, so will remove them and then clean up rest of fasta header
-echo -e 'KC683708\nKI440765\nKI440766\nKI440767\nKI440768\nKI440769\nKI440770\nKI440771\nKI440772\nKI440773\nKI440774\nKI440775\nKI440776\nKI440777\n' > remove.list
-sed 's/ | .*$//g' FungiDB-38_NcrassaOR74A_Genome.fasta > FungiDB-38_NcrassaOR74A_Genome_edit.fasta
-python $HOMEDIR/fasta_remove.py FungiDB-38_NcrassaOR74A_Genome_edit.fasta remove.list > Ncrassa.genome.fa
+if [ ! -f Ncrassa.genome.fa ]; then
+    echo -e 'KC683708\nKI440765\nKI440766\nKI440767\nKI440768\nKI440769\nKI440770\nKI440771\nKI440772\nKI440773\nKI440774\nKI440775\nKI440776\nKI440777\n' > remove.list
+    sed 's/ | .*$//g' FungiDB-38_NcrassaOR74A_Genome.fasta > FungiDB-38_NcrassaOR74A_Genome_edit.fasta
+    python $HOMEDIR/fasta_remove.py FungiDB-38_NcrassaOR74A_Genome_edit.fasta remove.list > Ncrassa.genome.fa
+fi
 
 #clean up gff file to remove annotations from mito and rRNA
-grep -E -v '^(KC683708|KI440765|KI440766|KI440767|KI440768|KI440769|KI440770|KI440771|KI440772|KI440773|KI440774|KI440775|KI440776|KI440777)' FungiDB-38_NcrassaOR74A.gff > Ncrassa.clean.gff3
-
+if [ ! -f Ncrassa.clean.gff3 ]; then
+    grep -E -v '^(KC683708|KI440765|KI440766|KI440767|KI440768|KI440769|KI440770|KI440771|KI440772|KI440773|KI440774|KI440775|KI440776|KI440777)' FungiDB-38_NcrassaOR74A.gff > Ncrassa.clean.gff3
+fi
 echo -e "Now annotate the genome 4 ways 
 	\t1) funannotate busco mediated training
 	\t2) funannotate RNA-seq data
@@ -42,14 +52,17 @@ if [ ! -f Ncrassa.masked.fa ]; then
 fi
 REPEATLIB=$(find . -name "repeatmodeler-library*" | sed 's,./,,g')
 
-#exit
  
 #get UniProt/SwissProt proteins, remove those from Ncrassa as to not bias predictions
-grep 'OS=Neurospora crassa' $FUNANNOTATE_DB/uniprot_sprot.fasta | gsed 's/>//g' > neurospora_crassa.list
-python $HOMEDIR/fasta_remove.py $FUNANNOTATE_DB/uniprot_sprot.fasta neurospora_crassa.list > uniprot_sprot.no-neurospora.fasta
+if [ ! -f neurospora_crassa.list ]; then
+    grep 'OS=Neurospora crassa' $FUNANNOTATE_DB/uniprot_sprot.fasta | $SED 's/>//g' > neurospora_crassa.list
+    python $HOMEDIR/fasta_remove.py $FUNANNOTATE_DB/uniprot_sprot.fasta neurospora_crassa.list > uniprot_sprot.no-neurospora.fasta
+fi
 
 #map protein evidence to genome so can be re-used for the different funannotate runs (will save some compute time)
-funannotate util prot2genome -g Ncrassa.masked.fa -p uniprot_sprot.no-neurospora.fasta -o ncrassa_uniprot.alignments.gff3 --cpus $CPUS
+if [ ! -f ncrassa_uniprot.alignments.gff3 ]; then
+    funannotate util prot2genome -g Ncrassa.masked.fa -p uniprot_sprot.no-neurospora.fasta -o ncrassa_uniprot.alignments.gff3 --cpus $CPUS
+fi
 
 #BUSCO only
 funannotate predict -i Ncrassa.masked.fa \
@@ -101,6 +114,7 @@ funannotate predict -i Ncrassa.masked.fa \
 funannotate update -i rna_seq --cpus $CPUS
 
 #want to compare this to a Maker run
+exit
 
 modue load maker
 
